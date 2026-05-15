@@ -8,4 +8,7 @@ public:
     void menuReportes();
     void menuReportesProductos();
     void menuReportesVentas();
+    void configurarMonedas();
+    void menuCajero();
+    void menuAlmacen();
 };

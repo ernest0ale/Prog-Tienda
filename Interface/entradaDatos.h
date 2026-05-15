@@ -16,9 +16,11 @@ public:
     static string leerCadenaTextNum(string mensaje);
     static string leerCadenaDigitos(string mensaje);
     static int leerCadenaEnteros(string mensaje);
-    static float leerCadenaFloat(string mensaje, string tipoPrecio, string min, string max);
-    static float validarFloat(string mensaje, string tipoPrecio, string min, string max);
+    static float leerCadenaFloat(string mensaje, string min, string max);
+    static float validarFloat(string mensaje, string min, string max);
     static bool leerCadenaBool(string mensaje);
     static string leerFechaFlexible(string mensaje);
     static bool esNumeroSimple(const string& s);
+    static string leerCadenaMoneda(string mensaje);
+    static string leerMonedaExtranjera(string mensaje);
 };

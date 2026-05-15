@@ -17,4 +17,6 @@
 #define dfloat long double
 #define unll unsigned long long
 #define MOD 1000000007
+#define monedaMin "0.0"
+#define monedaMax "1000000.0"
 const dfloat pi = 3.141592654;
