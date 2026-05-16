@@ -30,7 +30,7 @@ void Consola::mostrarBienvenida(){
     strftime(fecha,sizeof(fecha),"%d/%m/%Y",tiempo);
     strftime(hora,sizeof(hora),"%H:%M",tiempo);
 
-    cout<<"Sistema de Inventario Alpha v4.3 Pre Beta v1.0";
+    cout<<"Sistema de Inventario Beta 2.0";
     saltoLinea;
 
     cout<<"Fecha: "<<fecha;

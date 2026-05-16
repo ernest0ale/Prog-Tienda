@@ -471,7 +471,7 @@ string Validaciones::leerCadenaDigitos(string mensaje){
     return texto;
 }
 
-float Validaciones::leerCadenaFloat(string mensaje, string tipoPrecio, string min, string max){
+float Validaciones::leerCadenaFloat(string mensaje, string min, string max){
     char entrada[10];
     float valor=-1.0;
     int i;
@@ -479,55 +479,61 @@ float Validaciones::leerCadenaFloat(string mensaje, string tipoPrecio, string mi
     bool formatoValido = true;
     bool tieneDigito = false;
     bool tieneEspacio = false;
+    bool recibioEntrada=false;
 
-    cout<<mensaje<<tipoPrecio<<"("<<min<<"-"<<max<<")"<<": ";
-    fgets(entrada, sizeof(entrada), stdin);
-    entrada[strcspn(entrada, "\n")] = '\0';
+    cout<<mensaje<<"("<<min<<"-"<<max<<")"<<": ";
+    do{
+        fgets(entrada, sizeof(entrada), stdin);
+        entrada[strcspn(entrada, "\n")] = '\0';
 
-    // Procesar cadena
+        // Procesar cadena
 
-    if(strcmp(entrada,"0.0")!=0 && strcmp(entrada,"1000000.0")!=0){
-        for(i = 0; entrada[i] != '\0'; i++) {
-            if(entrada[i] != ' ') {
-                tieneEspacio=true;
-            }
+        if(strcmp(entrada,monedaMin)!=0 && strcmp(entrada,monedaMax)!=0){
+            for(i = 0; entrada[i] != '\0'; i++) {
+                if(entrada[i] != ' ') {
+                    tieneEspacio=true;
+                }
 
-            if(formatoValido){
-                if(isdigit(entrada[i])) {
-                    tieneDigito = true;
-                }else if(entrada[i] == '.') {
-                    cantPuntos++;
-                    if(cantPuntos>1){
+                if(formatoValido){
+                    if(isdigit(entrada[i])) {
+                        tieneDigito = true;
+                        recibioEntrada=true;
+                    }else if(entrada[i] == '.') {
+                        cantPuntos++;
+                        if(cantPuntos>1){
+                            formatoValido = false;
+                            recibioEntrada=true;
+                        }
+                    }else if(!(i == 0 && entrada[i] == '-')) {
                         formatoValido = false;
+                        recibioEntrada=true;
                     }
-                }else if(!(i == 0 && entrada[i] == '-')) {
-                    formatoValido = false;
                 }
             }
         }
-    }
 
-    if(entrada[0] != '\0'){
-        if(!tieneEspacio){
-            valor=-1.0;
-        }else if(!formatoValido || !tieneDigito){
-            valor=-2.0f;
-        }else{
-            valor=atof(entrada);
+        if(entrada[0] != '\0' && recibioEntrada){
+            if(!tieneEspacio){
+                valor=-1.0;
+            }else if(!formatoValido || !tieneDigito){
+                valor=-2.0f;
+            }else{
+                valor=atof(entrada);
+            }
         }
-    }
+    }while(!recibioEntrada);
 
     return valor;
 }
 
-float Validaciones::validarFloat(string mensaje, string tipoPrecio, string min, string max){
+float Validaciones::validarFloat(string mensaje, string min, string max){
     float valor;
     bool valorValido = false;
     Validaciones v;
     Consola c;
 
     do{
-        valor=v.leerCadenaFloat(mensaje,tipoPrecio,min,max);
+        valor=v.leerCadenaFloat(mensaje,min,max);
         if(valor==-1.0){
             cout<<red<<"\41Error! Formato inv\240lido."<<reset; saltoLinea
             cout<<orange<<"Los datos no pueden contener espacios."<<reset; saltoLinea
@@ -562,4 +568,81 @@ bool Validaciones::esNumeroSimple(const string& s){
         }
     }
     return resultado;
+}
+
+string Validaciones::leerCadenaMoneda(string mensaje){
+
+    char entrada[4];
+    bool entradaValida=false;
+    bool esTexto=true;
+    string moneda;
+    int i;
+
+
+    do{
+        cout<<mensaje;
+        fgets(entrada,sizeof(entrada),stdin);
+        entrada[strcspn(entrada,"\n")]='\0';
+
+        for(i=0; entrada[i] != '\0' && esTexto; i++){
+            if(isalpha(entrada[i])){
+                entrada[i]=toupper(entrada[i]);
+            }else{
+                esTexto=false;
+            }
+        }
+
+        if((strcmp(entrada,"CUP")==0) || (strcmp(entrada,"USD")==0) ||
+                (strcmp(entrada,"EUR")==0)){
+            moneda=string(entrada);
+            entradaValida=true;
+        }else{
+            cout<<orange<<"Entrada inv\240lida."<<reset;
+            saltoLinea
+            cout<<yellow<<"Introduzca una moneda correcta (CUP/USD/EUR)"<<reset;
+            saltoLinea;
+        }
+
+
+    }while(!entradaValida);
+
+    return moneda;
+}
+
+string Validaciones::leerMonedaExtranjera(string mensaje){
+
+    char entrada[4];
+    bool entradaValida=false;
+    bool esTexto=true;
+    string moneda;
+    Consola c;
+    int i;
+
+    do{
+        cout<<mensaje;
+        fgets(entrada,sizeof(entrada),stdin);
+        entrada[strcspn(entrada,"\n")]='\0';
+
+        for(i=0; entrada[i] != '\0' && esTexto; i++){
+            if(isalpha(entrada[i])){
+                entrada[i]=toupper(entrada[i]);
+            }else{
+                esTexto=false;
+            }
+        }
+
+        if((strcmp(entrada,"USD")==0) || (strcmp(entrada,"EUR")==0)){
+            moneda=string(entrada);
+            entradaValida=true;
+        }else{
+            cout<<orange<<"Entrada inv\240lida."<<reset;
+            saltoLinea
+            cout<<yellow<<"Introduzca una moneda correcta (USD/EUR)"<<reset;
+            saltoLinea;
+            c.pausa();
+        }
+
+    }while(!entradaValida);
+
+    return moneda;
 }

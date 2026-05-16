@@ -62,6 +62,20 @@ bool Database::inicializar() {
 
     sqlite3_exec(db, sqlHistorial, 0, 0, 0);
 
+    const char* sqlMonedas =
+        "CREATE TABLE IF NOT EXISTS monedas ("
+        "id INTEGER PRIMARY KEY AUTOINCREMENT,"
+        "nombre TEXT UNIQUE NOT NULL,"
+        "tasa REAL NOT NULL"
+        ");";
+
+    sqlite3_exec(db, sqlMonedas, 0, 0, 0);
+
+    // Insertar monedas base si no existen
+    sqlite3_exec(db, "INSERT OR IGNORE INTO monedas (nombre, tasa) VALUES ('CUP', 1);", 0, 0, 0);
+    sqlite3_exec(db, "INSERT OR IGNORE INTO monedas (nombre, tasa) VALUES ('USD', 510);", 0, 0, 0);
+    sqlite3_exec(db, "INSERT OR IGNORE INTO monedas (nombre, tasa) VALUES ('EUR', 550);", 0, 0, 0);
+
     return true;
 }
 

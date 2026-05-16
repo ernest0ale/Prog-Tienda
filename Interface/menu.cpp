@@ -1,6 +1,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <vector>
+#include <windows.h>
 #include <Interface/menu.h>
 #include <Global/definition.h>
 #include <Global/colors.h>
@@ -9,6 +10,8 @@
 #include <Services/reporteService.h>
 #include <Interface/consola.h>
 #include <Interface/entradaDatos.h>
+#include <Modules/cajeroModule.h>
+#include <Services/monedaService.h>
 
 using namespace std;
 
@@ -22,6 +25,7 @@ void Menu::menuPrincipal(){
     Menu menu;
     Validaciones v;
     Consola c;
+    CajeroModule cj;
 
     do{
         system("cls");
@@ -30,9 +34,9 @@ void Menu::menuPrincipal(){
         cout<<gray<<"2. Registrar venta"<<reset; saltoLinea
         cout<<gray<<"3. Listados"<<reset; saltoLinea
         cout<<gray<<"4. Reportes"<<reset; saltoLinea
-        cout<<gray<<"5. Salir"<<reset; saltoLinea
+        cout<<gray<<"5. Monedas"<<reset; saltoLinea
+        cout<<gray<<"6. Salir"<<reset; saltoLinea
 
-        /*op=v.leerEntero("Selecciona una opci\242n: ");*/
         op=v.leerCadenaOpcion("Selecciona una opci\242n: ");
 
         switch(op){
@@ -40,19 +44,9 @@ void Menu::menuPrincipal(){
                 menu.menuInventario();
                 break;
             case 2:
-            /*vector<Producto> productos = ps.obtenerProductos();
-
-            if(productos.empty()){
-                cout<<"No hay productos registrados";
-            }else{
-                for(auto &p : productos){
-                    cout<<p.nombre<<" - "<<p.precioVenta<<endl;
-                }
-            }*/
-
                 if(ps.existenProductos()){
                     system("cls");
-                    vs.registrarVenta();
+                    cj.iniciar();
                 }else{
                     saltoLinea
                     cout<<orange<<"Error: No hay productos registrados."<<reset;
@@ -69,7 +63,11 @@ void Menu::menuPrincipal(){
                 menu.menuReportes();
                 break;
             case 5:
-                salir=true;
+                menu.configurarMonedas();
+                break;
+            case 6:
+                Sleep(100);
+                TerminateProcess(GetCurrentProcess(), 0);
                 break;
             default:
                 cout<<orange<<"Opci\242n inv\240lida."<<reset;
@@ -95,8 +93,8 @@ void Menu::menuInventario(){
         system("cls");
         cout<<white<<"===== Men\243 de inventario ====="<<reset; saltoLinea
         cout<<gray<<"1. Agregar producto"<<reset; saltoLinea
-        cout<<gray<<"2. Cambiar precio de venta"<<reset; saltoLinea
-        cout<<gray<<"3. Eliminar producto"<<reset; saltoLinea
+        cout<<gray<<"2. Eliminar producto"<<reset; saltoLinea
+        cout<<gray<<"3. Cambiar precio de venta"<<reset; saltoLinea
         cout<<gray<<"4. Volver al men\243 principal"<<reset; saltoLinea
 
         op=v.leerCadenaOpcion("Selecciona una opci\242n: ");
@@ -109,7 +107,7 @@ void Menu::menuInventario(){
             case 2:
                 if(ps.existenProductos()){
                     system("cls");
-                    ps.cambiarPrecio();
+                    ps.eliminarProducto();
                 }else{
                     saltoLinea
                     cout<<orange<<"Error: No hay productos registrados."<<reset;
@@ -122,7 +120,7 @@ void Menu::menuInventario(){
             case 3:
                 if(ps.existenProductos()){
                     system("cls");
-                    ps.eliminarProducto();
+                    ps.cambiarPrecio();
                 }else{
                     saltoLinea
                     cout<<orange<<"Error: No hay productos registrados."<<reset;
@@ -186,9 +184,9 @@ void Menu::menuListados(){
                     ps.listarLotes();
                 }else{
                     saltoLinea
-                    cout<<orange<<"Error: No hay ventas registradas."<<reset;
+                    cout<<orange<<"Error: No hay productos registrados."<<reset;
                     saltoLinea
-                    cout<<yellow<<"Por favor, registre una venta."<<reset;
+                    cout<<yellow<<"Por favor, ingrese un producto."<<reset;
                     saltoLinea
                 }
                 c.pausa();
@@ -224,9 +222,6 @@ void Menu::menuReportes() {
 
     int op=0;
     bool salir=false;
-    ReporteService rs;
-    ProductoService ps;
-    VentaService vs;
     Validaciones v;
     Consola c;
     Menu menu;
@@ -470,5 +465,189 @@ void Menu::menuReportesVentas(){
                 c.pausa();
                 break;
         }
+    }while(!salir);
+}
+
+void Menu::configurarMonedas(){
+    MonedaService ms;
+    Validaciones v;
+    Consola c;
+    bool actualizar;
+
+    system("cls");
+    ms.listarMonedas();
+    actualizar = v.leerCadenaBool("\250Desea actualizar una tasa de cambio? (Y/N): ");
+
+    if(actualizar){
+        string moneda;
+        float nuevaTasa;
+        double doubleNuevaTasa;
+
+        moneda=v.leerMonedaExtranjera("Ingrese la moneda (USD/EUR): ");
+        nuevaTasa=v.validarFloat("Nueva tasa ", monedaMin, monedaMax);
+
+        doubleNuevaTasa=(double)nuevaTasa;
+        ms.actualizarTasa(moneda, doubleNuevaTasa);
+        cout<<lightGreen<<"Tasa actualizada correctamente"<<reset; saltoLinea
+        c.pausa();
+    }
+}
+
+void Menu::menuCajero(){
+    int op = 0;
+    bool salir = false;
+
+    VentaService vs;
+    ProductoService ps;
+    Validaciones v;
+    Consola c;
+
+    do{
+        system("cls");
+
+        cout<<"===== M\242dulo de cajero ====="; saltoLinea
+        cout<<gray<<"1. Registrar venta"<<reset; saltoLinea
+        cout<<gray<<"2. Listar productos"<<reset; saltoLinea
+        cout<<gray<<"3. Listar lotes"<<reset; saltoLinea
+        cout<<gray<<"4. Listar ventas"<<reset; saltoLinea
+        cout<<gray<<"5. Salir"<<reset; saltoLinea
+
+        op = v.leerCadenaOpcion("Seleccione una opci\242n: ");
+
+        switch(op){
+            case 1:
+                if(ps.existenProductos()){
+                    vs.iniciarVenta();
+                }else{
+                    cout<<orange<<"Error, no hay productos registrados"<<reset;
+                    saltoLinea
+                    cout<<yellow<<"Por favor, ingrese un producto."<<reset;
+                    saltoLinea
+                }
+                c.pausa();
+                break;
+
+            case 2:
+                if(ps.existenProductos()){
+                    ps.listarProductos();
+                }else{
+                    cout<<orange<<"Error, no hay productos registrados"<<reset;
+                    saltoLinea
+                    cout<<yellow<<"Por favor, ingrese un producto."<<reset;
+                    saltoLinea
+                }
+                c.pausa();
+                break;
+
+            case 3:
+                if(ps.existenProductos()){
+                    ps.listarLotes();
+                }else{
+                    cout<<orange<<"Error, no hay productos registrados"<<reset;
+                    saltoLinea
+                    cout<<yellow<<"Por favor, ingrese un producto."<<reset;
+                    saltoLinea
+                }
+                c.pausa();
+                break;
+
+            case 4:
+                if(vs.existenVentas()){
+                    vs.listarVentas();
+                }else{
+                    cout<<orange<<"Error, no hay ventas registradas"<<reset;
+                    saltoLinea
+                    cout<<yellow<<"Por favor, registre una venta."<<reset;
+                    saltoLinea
+                }
+                c.pausa();
+                break;
+            case 5:
+                Sleep(100);
+                TerminateProcess(GetCurrentProcess(), 0);
+                break;
+            default:
+                cout<<orange<<"Opci\242n inv\240lida."<<reset;
+                saltoLinea
+                cout<<yellow<<"Intente nuevamente."<<reset;
+                saltoLinea
+                break;
+        }
+
+    }while(!salir);
+}
+
+void Menu::menuAlmacen(){
+    int op = 0;
+    bool salir = false;
+
+    ProductoService ps;
+    Validaciones v;
+    Consola c;
+
+    do{
+        system("cls");
+        cout<<"===== M\242dulo almac\202n====="; saltoLinea
+        cout<<gray<<"1. Agregar producto"<<reset; saltoLinea
+        cout<<gray<<"2. Eliminar producto"<<reset; saltoLinea
+        cout<<gray<<"3. Listar productos"<<reset; saltoLinea
+        cout<<gray<<"4. Listar lotes"<<reset; saltoLinea
+        cout<<gray<<"5. Salir"<<reset; saltoLinea
+
+        op = v.leerCadenaOpcion("Seleccione una opci\242: ");
+
+        switch(op){
+            case 1:
+                ps.registrarInventario();
+                break;
+            case 2:
+                if(ps.existenProductos()){
+                    system("cls");
+                    ps.eliminarProducto();
+                }else{
+                    saltoLinea
+                    cout<<orange<<"Error: No hay productos registrados."<<reset;
+                    saltoLinea
+                    cout<<yellow<<"Por favor, ingrese un producto."<<reset;
+                    saltoLinea
+                }
+            case 3:
+                if(ps.existenProductos()){
+                    system("cls");
+                    ps.listarProductos();
+                }else{
+                    saltoLinea
+                    cout<<orange<<"Error: No hay productos registrados."<<reset;
+                    saltoLinea
+                    cout<<yellow<<"Por favor, ingrese un producto."<<reset;
+                    saltoLinea
+                }
+                c.pausa();
+                break;
+            case 4:
+                if(ps.existenProductos()){
+                    system("cls");
+                    ps.listarLotes();
+                }else{
+                    saltoLinea
+                    cout<<orange<<"Error: No hay productos registrados."<<reset;
+                    saltoLinea
+                    cout<<yellow<<"Por favor, ingrese un producto."<<reset;
+                    saltoLinea
+                }
+                c.pausa();
+                break;
+            case 5:
+                Sleep(100);
+                TerminateProcess(GetCurrentProcess(), 0);
+                break;
+            default:
+                cout<<orange<<"Opci\242n inv\240lida."<<reset;
+                saltoLinea
+                cout<<yellow<<"Intente nuevamente."<<reset;
+                saltoLinea
+                break;
+        }
+        c.pausa();
     }while(!salir);
 }

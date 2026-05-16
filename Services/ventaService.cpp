@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sstream>
+#include <vector>
 #include <ctime>
 #include <iomanip>
 #include <Data/database.h>
@@ -11,9 +12,123 @@
 #include <Interface/consola.h>
 #include <Services/productoService.h>
 #include <Services/ventaService.h>
+#include <Services/monedaService.h>
 
 using namespace std;
 
+//Funciones nuevas
+void VentaService::iniciarVenta(){
+
+    carrito.clear();
+    Validaciones v;
+    MonedaService ms;
+    ProductoService ps;
+
+    bool continuar = true;
+    system("cls");
+    ps.listarProductos();
+    saltoLinea
+    do{
+        int id = v.leerCadenaEnteros("ID del producto: ");
+        int cantidad = v.leerCadenaEnteros("Cantidad: ");
+
+        agregarProducto(id, cantidad);
+        continuar = v.leerCadenaBool("\250Agregar otro producto? (Y/N): ");
+    }while(continuar);
+
+    double total = calcularTotal();
+
+    cout<<"Total en CUP: "<<total;
+    saltoLinea
+
+    string moneda;
+    moneda=v.leerCadenaMoneda("Moneda de pago (CUP/USD/EUR): ");
+
+    double totalConvertido = ms.convertir(total, "CUP", moneda);
+
+    cout<<"Total en "<<moneda<<": "<<totalConvertido; saltoLinea
+
+    float montoPagar=v.validarFloat("Dinero recibido: ",monedaMin,monedaMax);
+    double pago =(double)montoPagar;
+
+    if(pago < totalConvertido){
+        cout<<yellow<<"Pago insuficiente"<<reset;
+        saltoLinea
+    }else{
+        cout<<"Cambio: "<<(pago - totalConvertido);
+        saltoLinea
+        finalizarVenta();
+    }
+}
+
+void VentaService::agregarProducto(int productoId, int cantidad){
+    ItemVenta item;
+    item.productoId = productoId;
+    item.cantidad = cantidad;
+
+    carrito.push_back(item);
+}
+
+double VentaService::obtenerPrecioProducto(int productoId){
+    sqlite3* db = Database::getDB();
+    sqlite3_stmt* stmt;
+
+    double precio = 0;
+
+    string sql = "SELECT precio_venta FROM productos WHERE id = ?;";
+    sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0);
+
+    sqlite3_bind_int(stmt, 1, productoId);
+
+    if(sqlite3_step(stmt) == SQLITE_ROW){
+        precio = sqlite3_column_double(stmt, 0);
+    }
+
+    sqlite3_finalize(stmt);
+    return precio;
+}
+
+double VentaService::calcularTotal(){
+    double total = 0;
+    size_t i;
+    double precio;
+
+    for(i=0; i<carrito.size(); ++i){
+        const ItemVenta& item=carrito[i];
+        precio = obtenerPrecioProducto(item.productoId);
+        total += precio * item.cantidad;
+    }
+
+    return total;
+}
+
+void VentaService::finalizarVenta(){
+
+    sqlite3* db = Database::getDB();
+    sqlite3_stmt* stmt;
+    size_t i;
+
+    string sql = "INSERT INTO ventas (lote_id, cantidad, fecha) VALUES (?, ?, datetime('now'));";
+
+    for(i=0; i<carrito.size(); ++i){
+
+        const ItemVenta& item=carrito[i];
+        sqlite3_prepare_v2(db, sql.c_str(), -1, &stmt, 0);
+
+        // aquí asumimos lote_id = productoId (puedes mejorar luego)
+        sqlite3_bind_int(stmt, 1, item.productoId);
+        sqlite3_bind_int(stmt, 2, item.cantidad);
+
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
+
+    cout<<lightGreen<<"Venta registrada correctamente"<<reset; saltoLinea
+}
+
+
+
+//Funciones de Beta 1
 void VentaService::registrarVenta() {
     sqlite3* db = Database::getDB();
     Validaciones v;
@@ -188,7 +303,7 @@ void VentaService::listarVentas() {
 
     cout << left
         << setw(5) << "ID"
-        << setw(15) << "Fecha"
+        << setw(20) << "Fecha"
         << setw(10) << "C\242digo"
         << setw(20) << "Producto"
         << setw(15) << "Marca"
@@ -203,7 +318,7 @@ void VentaService::listarVentas() {
         encontrado = true;
 
         cout << setw(5) << sqlite3_column_int(stmt, 0)
-            << setw(15) << (const char*)sqlite3_column_text(stmt, 1)
+            << setw(20) << (const char*)sqlite3_column_text(stmt, 1)
             << setw(10) << (const char*)sqlite3_column_text(stmt, 2) // Código del producto
             << setw(20) << (const char*)sqlite3_column_text(stmt, 3)
             << setw(15) << (const char*)sqlite3_column_text(stmt, 4)

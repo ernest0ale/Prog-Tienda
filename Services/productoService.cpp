@@ -15,34 +15,6 @@
 
 using namespace std;
 
-vector<Producto> ProductoService::obtenerProductos(){
-    vector<Producto> lista;
-
-    sqlite3* db = Database::getDB();
-
-    const char* sql = "SELECT id, codigo, nombre, marca, precio_venta FROM productos;";
-
-    sqlite3_stmt* stmt;
-
-    if(sqlite3_prepare_v2(db, sql, -1, &stmt, 0) == SQLITE_OK){
-        while(sqlite3_step(stmt) == SQLITE_ROW){
-            Producto p;
-
-            p.id = sqlite3_column_int(stmt, 0);
-            p.codigo = (char*)sqlite3_column_text(stmt, 1);
-            p.nombre = (char*)sqlite3_column_text(stmt, 2);
-            p.marca = (char*)sqlite3_column_text(stmt, 3);
-            p.precioVenta = sqlite3_column_double(stmt, 4);
-
-            lista.push_back(p);
-        }
-    }
-
-    sqlite3_finalize(stmt);
-    return lista;
-}
-
-
 void ProductoService::listarProductos() {
     system("cls");
 
@@ -168,8 +140,8 @@ void ProductoService::registrarInventario() {
         // Si no existe, solicitar detalles del nuevo producto
         nombre = v.leerCadenaTexto("Nombre: ");
         marca = v.leerCadenaTexto("Marca: ");
-        float compra = v.validarFloat("Precio de compra: ", "", "0", "100000");
-        float venta = v.validarFloat("Precio de venta: ", "", "0", "100000");
+        double compra =(double) v.validarFloat("Precio de compra (CUP): ", monedaMin, monedaMax);
+        double venta =(double) v.validarFloat("Precio de venta (CUP): ", monedaMin, monedaMax);
 
         // Insertar en la tabla productos
         sqlite3_stmt* stmtInsProd;
@@ -206,9 +178,9 @@ void ProductoService::registrarInventario() {
     bool ingresarLote = v.leerCadenaBool("\250Desea ingresar un lote para este producto? (Y/N): ");
 
     if (ingresarLote) {
-        string lote = v.leerCadenaTextNum("Lote: ");
+        string lote = v.leerCadenaTextNum("No. lote: ");
         int stock = v.leerEntero("Stock: ");
-        int stockMin = v.leerEntero("Stock m\241nimo: ");
+        int stockmonedaMin = v.leerEntero("Stock m\241nimo: ");
         string fecha = vs.obtenerFechaActual();
         bool tieneCaducidad = v.leerCadenaBool("\250Tiene fecha de caducidad? (Y/N): ");
         string fechaCaducidad = "";
@@ -220,12 +192,12 @@ void ProductoService::registrarInventario() {
         // Insertar en la tabla lotes
         sqlite3_stmt* stmtInsLote;
         sqlite3_prepare_v2(db,
-                           "INSERT INTO lotes(producto_id,lote, stock, stock_minimo, fecha_recibido, tiene_caducidad, fecha_caducidad) "
+                           "INSERT INTO lotes(producto_id,lote, stock, stock_monedaMinimo, fecha_recibido, tiene_caducidad, fecha_caducidad) "
                            "VALUES(?,?,?,?,?,?,?);", -1, &stmtInsLote, NULL);
         sqlite3_bind_int(stmtInsLote, 1, id); // Usar el ID obtenido (ya sea nuevo o existente)
         sqlite3_bind_text(stmtInsLote, 2, lote.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(stmtInsLote, 3, stock);
-        sqlite3_bind_int(stmtInsLote, 4, stockMin);
+        sqlite3_bind_int(stmtInsLote, 4, stockmonedaMin);
         sqlite3_bind_text(stmtInsLote, 5, fecha.c_str(), -1, SQLITE_TRANSIENT);
         sqlite3_bind_int(stmtInsLote, 6, tieneCaducidad ? 1 : 0); // Convertir bool a int
         sqlite3_bind_text(stmtInsLote, 7, fechaCaducidad.c_str(), -1, SQLITE_TRANSIENT);
@@ -245,104 +217,6 @@ void ProductoService::registrarInventario() {
     }
 }
 
-/*void ProductoService::registrarInventario() {
-    sqlite3* db = Database::getDB();
-    Validaciones v;
-    VentaService vs;
-    int id;
-
-    system("cls");
-
-    string codigo = v.leerCadenaTextNum("C\242digo de barras: ");
-
-    const char* sqlCheck = "SELECT id, nombre, marca FROM productos WHERE codigo=? LIMIT 1;";
-    sqlite3_stmt* stmt;
-    sqlite3_prepare_v2(db, sqlCheck, -1, &stmt, NULL);
-    sqlite3_bind_text(stmt, 1, codigo.c_str(), -1, SQLITE_TRANSIENT);
-
-    bool existe = false;
-    string nombre, marca;
-
-    if (sqlite3_step(stmt) == SQLITE_ROW) {
-        existe = true;
-        id = sqlite3_column_int(stmt, 0); // Obtener el ID del producto existente
-        nombre = (const char*)sqlite3_column_text(stmt, 1);
-        marca = (const char*)sqlite3_column_text(stmt, 2);
-    }
-    sqlite3_finalize(stmt);
-
-    if (!existe) {
-        nombre = v.leerCadenaTexto("Nombre: ");
-        marca = v.leerCadenaTexto("Marca: ");
-        float compra = v.validarFloat("Precio de compra ", "", "0", "100000");
-        float venta = v.validarFloat("Precio de venta ", "", "0", "100000");
-
-        // Insertar en la tabla productos
-        sqlite3_stmt* stmtInsProd;
-        sqlite3_prepare_v2(db,
-                           "INSERT INTO productos(codigo, nombre, marca, precio_compra, precio_venta) "
-                           "VALUES(?,?,?,?,?);", -1, &stmtInsProd, NULL);
-
-        sqlite3_bind_text(stmtInsProd, 1, codigo.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmtInsProd, 2, nombre.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_text(stmtInsProd, 3, marca.c_str(), -1, SQLITE_TRANSIENT);
-        sqlite3_bind_double(stmtInsProd, 4, compra);
-        sqlite3_bind_double(stmtInsProd, 5, venta);
-
-        if (sqlite3_step(stmtInsProd) != SQLITE_DONE) {
-            cout << red << "Error al insertar producto: " << sqlite3_errmsg(db) << reset;
-            saltoLinea;
-            sqlite3_finalize(stmtInsProd);
-            return; // Salir si hay error al insertar el producto
-        }
-
-        // Obtener el ID del producto recién insertado
-        id = sqlite3_last_insert_rowid(db);
-        sqlite3_finalize(stmtInsProd);
-
-    } else {
-        cout << lightBlue << "Producto existente: " << nombre << " " << marca << reset;
-        saltoLinea;
-    }
-
-    // Aquí ya tienes el ID correcto del producto (ya sea nuevo o existente)
-    string lote = v.leerCadenaTextNum("Lote: ");
-    int stock = v.leerEntero("Stock: ");
-    int stockMin = v.leerEntero("Stock m\241nimo: ");
-    string fecha = vs.obtenerFechaActual();
-    bool tieneCaducidad = v.leerCadenaBool("Tiene fecha de caducidad? (Y/N): ");
-    string fechaCaducidad = "";
-
-    if (tieneCaducidad) {
-        cout << "Ingrese fecha de caducidad (aaaa-mm-dd): ";
-        getline(cin, fechaCaducidad);
-    }
-
-    // Insertar en la tabla lotes
-    sqlite3_stmt* stmtInsLote;
-    sqlite3_prepare_v2(db,
-                       "INSERT INTO lotes(producto_id,lote, stock, stock_minimo, fecha_recibido, tiene_caducidad, fecha_caducidad) "
-                       "VALUES(?,?,?,?,?,?,?);", -1, &stmtInsLote, NULL);
-
-    sqlite3_bind_int(stmtInsLote, 1, id); // Usar el ID obtenido (ya sea nuevo o existente)
-    sqlite3_bind_text(stmtInsLote, 2, lote.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmtInsLote, 3, stock);
-    sqlite3_bind_int(stmtInsLote, 4, stockMin);
-    sqlite3_bind_text(stmtInsLote, 5, fecha.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_int(stmtInsLote, 6, tieneCaducidad ? 1 : 0); // Convertir bool a int
-    sqlite3_bind_text(stmtInsLote, 7, fechaCaducidad.c_str(), -1, SQLITE_TRANSIENT);
-
-    if (sqlite3_step(stmtInsLote) != SQLITE_DONE) {
-        cout << red << "Error al insertar lote: " << sqlite3_errmsg(db) << reset;
-        saltoLinea;
-    } else {
-        cout << lightGreen << "Inventario actualizado" << reset;
-        saltoLinea;
-    }
-
-    sqlite3_finalize(stmtInsLote);
-}*/
-
 void ProductoService::eliminarProducto() {
 
     sqlite3* db = Database::getDB();
@@ -350,7 +224,7 @@ void ProductoService::eliminarProducto() {
     Validaciones v;
 
     saltoLinea;
-    int id = v.leerCadenaEnteros("ID del producto a eliminar: ");
+    int id = v.leerCadenaEnteros("ID del producto a elimonedaMinar: ");
 
     stringstream ss;
     ss<<"DELETE FROM productos WHERE id="<<id<<";";
@@ -358,13 +232,13 @@ void ProductoService::eliminarProducto() {
     char* error = 0;
 
     if (sqlite3_exec(db, ss.str().c_str(), 0, 0, &error) != SQLITE_OK) {
-        cout << red << "Error eliminando producto."<<reset;
+        cout << red << "Error elimonedaMinando producto."<<reset;
         saltoLinea;
         sqlite3_free(error);
     }else{
-        cout<<lightGreen<<"Producto eliminado correctamente."<<reset;
+        cout<<lightGreen<<"Producto elimonedaMinado correctamente."<<reset;
         saltoLinea;
-        cout<<gray<<"Sus lotes y ventas asociadas fueron eliminados automaticamente."<<reset;
+        cout<<gray<<"Sus lotes y ventas asociadas fueron elimonedaMinados automaticamente."<<reset;
         saltoLinea;
     }
 }
@@ -396,14 +270,12 @@ void ProductoService::cambiarPrecio(){
     float venta;
     double precioCompra;
     double precioVenta;
-    string min="0.0";
-    string max="1000000.0";
 
     saltoLinea;
     id = v.leerCadenaEnteros("ID del producto: ");
     saltoLinea;
-    compra=v.validarFloat("Introduzca el nuevo precio de ", "compra ", min, max);
-    venta=v.validarFloat("Introduzca el nuevo precio de ", "venta ", min, max);
+    compra=v.validarFloat("Introduzca el nuevo precio de compra", monedaMin, monedaMax);
+    venta=v.validarFloat("Introduzca el nuevo precio de venta", monedaMin, monedaMax);
 
     //Convertir a double
     precioCompra=(double)compra;
@@ -497,21 +369,21 @@ void ProductoService::guardarHistorialPrecio(int producto_id,double compra,doubl
         cout<<"Ingrese fecha de caducidad (aaaa-mm-dd): ";
         getline(cin,fechaCaducidad);
     }
-    string min="0.0";
-    string max="1000000.0";
+    string monedaMin="0.0";
+    string monedaMax="1000000.0";
 
-    float compra=v.validarFloat("Precio de ", "compra ",min,max);
-    float venta=v.validarFloat("Precio de ", "venta ",min,max);
+    float compra=v.validarFloat("Precio de ", "compra ",monedaMin,monedaMax);
+    float venta=v.validarFloat("Precio de ", "venta ",monedaMin,monedaMax);
 
     //Convertir a double
     double precioCompra=(double)compra;
     double precioVenta=(double)venta;
 
     int stock=v.leerEntero("Stock inicial: ");
-    int stockMin=v.leerEntero("Stock m\241nimo: ");
+    int stockmonedaMin=v.leerEntero("Stock m\241nimo: ");
 
     const char* sqlInsert=
-            "INSERT INTO productos(nombre,marca,lote,precio_compra,precio_venta,stock,stock_minimo,fecha_recibido,tiene_caducidad,fecha_caducidad)"
+            "INSERT INTO productos(nombre,marca,lote,precio_compra,precio_venta,stock,stock_monedaMinimo,fecha_recibido,tiene_caducidad,fecha_caducidad)"
             "VALUES(?,?,?,?,?,?,?,?,?,?)";
 
     sqlite3_stmt* stmtInsert;
@@ -526,7 +398,7 @@ void ProductoService::guardarHistorialPrecio(int producto_id,double compra,doubl
     sqlite3_bind_double(stmtInsert,5,precioVenta);
 
     sqlite3_bind_int(stmtInsert,6,stock);
-    sqlite3_bind_int(stmtInsert,7,stockMin);
+    sqlite3_bind_int(stmtInsert,7,stockmonedaMin);
 
     sqlite3_bind_text(stmtInsert,8,fecha_recibido.c_str(),-1,SQLITE_TRANSIENT);
     sqlite3_bind_int(stmtInsert,9,tieneCaducidad);
@@ -657,7 +529,7 @@ void ProductoService::guardarHistorialPrecio(int producto_id,double compra,doubl
     float venta=v.validarFloat("Precio de venta ","","0","100000");
 
     int stock=v.leerEntero("Stock: ");
-    int stockMin=v.leerEntero("Stock m\241nimo: ");
+    int stockmonedaMin=v.leerEntero("Stock m\241nimo: ");
 
     string fecha=vs.obtenerFechaActual();
 
@@ -673,7 +545,7 @@ void ProductoService::guardarHistorialPrecio(int producto_id,double compra,doubl
 
     sqlite3_stmt* stmtIns;
     sqlite3_prepare_v2(db,
-    "INSERT INTO productos(codigo,nombre,marca,lote,precio_compra,precio_venta,stock,stock_minimo,fecha_recibido,tiene_caducidad,fecha_caducidad)"
+    "INSERT INTO productos(codigo,nombre,marca,lote,precio_compra,precio_venta,stock,stock_monedaMinimo,fecha_recibido,tiene_caducidad,fecha_caducidad)"
     "VALUES(?,?,?,?,?,?,?,?,?);",-1,&stmtIns,NULL);
 
     sqlite3_bind_text(stmtIns,1,codigo.c_str(),-1,SQLITE_TRANSIENT);
@@ -683,7 +555,7 @@ void ProductoService::guardarHistorialPrecio(int producto_id,double compra,doubl
     sqlite3_bind_double(stmtIns,5,compra);
     sqlite3_bind_double(stmtIns,6,venta);
     sqlite3_bind_int(stmtIns,7,stock);
-    sqlite3_bind_int(stmtIns,8,stockMin);
+    sqlite3_bind_int(stmtIns,8,stockmonedaMin);
     sqlite3_bind_text(stmtIns,9,fecha.c_str(),-1,SQLITE_TRANSIENT);
 
     sqlite3_step(stmtIns);
